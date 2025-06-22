@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import numpy as np
+import os
+
+
 
 # Initialize FastAPI app
 app = FastAPI(title="Boston Housing Price Prediction API")
@@ -23,8 +26,12 @@ class HousingFeatures(BaseModel):
     B: float
     LSTAT: float
 
+# Get absolute path to the project root directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "gradient_boosting_model.joblib")
+
 # Load the trained model
-model = joblib.load("models/gradient_boosting_model.joblib")
+model = joblib.load(MODEL_PATH)
 
 @app.get("/")
 def root():
