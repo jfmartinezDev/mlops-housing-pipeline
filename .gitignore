@@ -12,6 +12,10 @@ venv/
 models/
 *.joblib
 
+# MLflow run directory
+mlruns/
+
+
 # Raw data
 data/*.csv
 
