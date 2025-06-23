@@ -3,8 +3,8 @@ from pydantic import BaseModel
 import joblib
 import numpy as np
 import os
-
-
+import pandas as pd
+from datetime import datetime
 
 # Initialize FastAPI app
 app = FastAPI(title="Boston Housing Price Prediction API")
@@ -29,6 +29,7 @@ class HousingFeatures(BaseModel):
 # Get absolute path to the project root directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "gradient_boosting_model.joblib")
+LOG_PATH = os.path.join(BASE_DIR, "data", "predictions_log.csv")
 
 # Load the trained model
 model = joblib.load(MODEL_PATH)
@@ -48,5 +49,21 @@ def predict_price(features: HousingFeatures):
 
     # Make prediction
     prediction = model.predict(input_data)[0]
+
+    # Create log record
+    record = {
+        "timestamp": datetime.utcnow().isoformat(),
+        **features.dict(),
+        "prediction": prediction
+    }
+
+    # Convert to DataFrame
+    log_df = pd.DataFrame([record])
+
+    # Append to CSV or create it
+    if not os.path.isfile(LOG_PATH):
+        log_df.to_csv(LOG_PATH, index=False)
+    else:
+        log_df.to_csv(LOG_PATH, mode="a", header=False, index=False)
 
     return {"predicted_price": round(prediction, 2)}
