@@ -1,155 +1,228 @@
-# Housing Price Prediction API
+# Housing Price Prediction - MLOps Pipeline
 
-This project implements a complete ML pipeline that trains a regression model on the Boston Housing dataset and exposes it via a FastAPI-based RESTful API. The pipeline includes data loading, model training, saving, logging with MLflow, containerization with Docker, local testing and cloud deployment in Azure.
+This repository implements a complete MLOps pipeline for predicting housing prices using the Boston Housing dataset. It covers model training, API deployment (locally, Docker, and Azure App Service), monitoring with MLflow and Evidently, drift detection, and automated retraining logic.
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 mlops-housing-pipeline/
 ├── api/
-│   ├── main.py              # FastAPI app
-│   └── test_main.py         # pytest test for the API
+│   ├── main.py                  # FastAPI API entry point
+│   └── test_main.py             # Pytest unit tests
 ├── data/
-│   └── BostonHousing.csv    # Dataset used for training
+│   ├── BostonHousing.csv        # Training dataset
+│   ├── predictions_log.csv      # Inference logs
+│   ├── predictions_log_drift_data.csv
+│   ├── predictions_log_drift_predictions.csv
+│   └── evidently_drift_report.html
 ├── models/
-│   └── gradient_boosting_model.joblib  # Saved model
-├── Dockerfile               # Docker image definition
-├── .dockerignore            # Docker ignore config
-├── requirements.txt         # Project dependencies
+│   ├── gradient_boosting_model.joblib
+│   ├── gradient_boosting_model_latest.joblib
+│   └── gradient_boosting_model_YYYYMMDD_HHMMSS.joblib
 ├── src/
-│   └── train.py             # Script to train and save the model
-├── mlruns/                  # MLflow experiment logs
-└── README.md                # This file
+│   ├── train.py                 # Train the model
+│   ├── bulk_predict.py          # Run batch predictions
+│   ├── detect_drift.py          # Drift detection using Evidently
+│   ├── simulate_drift.py        # Generate synthetic drift data
+│   ├── retrain_model.py         # Retrain model automatically
+│   └── download_dataset.py      # Download dataset (if required)
+├── mlruns/                      # MLflow logs and artifacts
+├── Dockerfile                   # Container definition
+├── requirements.txt             # Python dependencies
+├── README.md
 ```
 
-## Requirements
+---
 
-Install the dependencies in a virtual environment (recommended):
+## ✅ Requirements
+
+Install dependencies in a virtual environment:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
+source .venv/bin/activate         # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Dependencies (from `requirements.txt`):
+## 🔑 Key Dependencies
 
-```
-fastapi
-uvicorn
-numpy
-pandas
-scikit-learn
-pydantic
-mlflow
-joblib
-httpx
-pytest
-```
+The project relies on the following main Python packages:
 
-Ensure `mlflow` is properly configured with local backend and artifact store if you plan to explore MLflow UI:
+| Package        | Version   | Description                                      |
+|----------------|-----------|--------------------------------------------------|
+| fastapi        | 0.115.13  | Web framework for building the REST API         |
+| joblib         | 1.5.1     | Model serialization and persistence             |
+| mlflow         | 3.1.0     | End-to-end machine learning lifecycle tracking  |
+| mlflow_skinny  | 3.1.0     | Lightweight MLflow client for deployment        |
+| numpy          | 2.3.1     | Numerical computations and array operations     |
+| pandas         | 2.3.0     | Data manipulation and preprocessing             |
+| pydantic       | 2.11.7    | Data validation and parsing for FastAPI models  |
+| requests       | 2.32.4    | HTTP requests handling                          |
+| scikit-learn   | 1.7.0     | Model training and evaluation                   |
+| evidently      | 0.7.8     | Model monitoring and drift detection            |
 
-```bash
-mlflow ui
-```
 
-## Train the Model
+---
 
-To train the model and generate `gradient_boosting_model.joblib`:
+## 🧠 Train the Model
 
 ```bash
 python src/train.py
 ```
 
-This script:
+This will:
 
-* Loads the dataset from `data/BostonHousing.csv`
-* Splits it into train/test sets
-* Trains a `GradientBoostingRegressor`
-* Evaluates MAE and R²
-* Saves the trained model into `models/`
-* Logs parameters, metrics, and the model using MLflow
+- Load `BostonHousing.csv`
+- Train and evaluate a `GradientBoostingRegressor`
+- Log artifacts with MLflow
+- Save models to `models/`
 
-## Run the API Locally
+---
 
-Start the FastAPI server locally with:
+## 🚀 Run the API Locally
 
 ```bash
-cd api
 uvicorn api.main:app --reload
 ```
 
-Access Swagger UI:
+Visit Swagger UI at:
 
-* [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-## Test the API
+---
 
-You can test the API with `curl` or `pytest`:
-
-### 1. Using cURL
-
-```bash
-curl -X POST "http://127.0.0.1:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d '{"crim": 0.2, "zn": 0, "indus": 8.14, "chas": 0, "nox": 0.538, "rm": 5.56, "age": 85.4, "dis": 2.45, "rad": 4, "tax": 307, "ptratio": 21.0, "b": 396.9, "lstat": 14.1}'
-```
-
-### 2. Using pytest
-
-Make sure you're in the root directory and run:
+## 🧪 Run API Tests
 
 ```bash
 pytest api/test_main.py
 ```
 
-## Build and Run with Docker
+---
 
-### Step 1: Build the Docker image
+## 🐳 Run with Docker
+
+### 1. Build Docker Image
 
 ```bash
 docker build -t housing-price-predictor-api .
 ```
 
-### Step 2: Run the Docker container
+### 2. Run the Container
 
 ```bash
-docker run -d -p 8000:8000 --name housing-api housing-price-predictor-api uvicorn api.main:app --host 0.0.0.0 --port 8000
+docker run -d -p 8000:8000 --name housing-api \
+  housing-price-predictor-api \
+  uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Access the API at [http://localhost:8000/docs](http://localhost:8000/docs)
-
-### Step 3: Stop and remove the container
+### 3. Stop and Remove
 
 ```bash
 docker stop housing-api
 docker rm housing-api
 ```
 
-## Deployment to Azure App Service
+---
 
-To deploy on Azure App Service:
+## ☁️ Deployment on Azure App Service
 
-1. Push the Docker image to DockerHub or connect your GitHub repository.
-2. In Azure, set the startup command as:
+### Steps:
 
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000
+1. Push the image to Docker Hub:
+   ```bash
+   docker tag housing-price-predictor-api jfma8925/housing-price-predictor-api:latest
+   docker push jfma8925/housing-price-predictor-api:latest
+   ```
+
+2. In Azure Portal > App Service > Deployment Center:
+   - **Container Registry**: Docker Hub
+   - **Image name**: `jfma8925/housing-price-predictor-api:latest`
+   - **Startup command**:
+     ```bash
+     uvicorn api.main:app --host 0.0.0.0 --port 8000
+     ```
+
+---
+
+## ☸️ Deployment on Azure Kubernetes Service (AKS)
+
+> For production-grade deployments
+
+1. Push Docker image (same as above)
+2. Create a Kubernetes deployment YAML:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: housing-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: housing-api
+  template:
+    metadata:
+      labels:
+        app: housing-api
+    spec:
+      containers:
+      - name: housing-api
+        image: jfma8925/housing-price-predictor-api:latest
+        ports:
+        - containerPort: 8000
 ```
 
-3. Ensure ports, environment variables and paths are properly configured.
+3. Apply it:
 
-## Monitoring
+```bash
+kubectl apply -f deployment.yaml
+kubectl expose deployment housing-api --type=LoadBalancer --port=80 --target-port=8000
+```
 
-This project uses MLflow to log training metrics and models. To view them:
+---
+
+## 📊 Monitoring and Drift Detection
+
+### Launch MLflow UI:
 
 ```bash
 mlflow ui
 ```
 
-Visit [http://localhost:5000](http://localhost:5000) in your browser.
+Visit: [http://localhost:5000](http://localhost:5000)
 
+### Run Drift Detection:
 
-## License
+```bash
+python src/detect_drift.py
+```
 
-This project is part of a technical assessment and is not intended for production use.
+Drift report saved in: `data/evidently_drift_report.html`
+
+---
+
+## 🔁 Retraining Strategy
+
+Retrain if drift is detected or periodically (weekly/monthly).
+
+### To Retrain:
+
+```bash
+python src/retrain_model.py
+```
+
+This will:
+- Load updated dataset
+- Train new model
+- Replace `gradient_boosting_model_latest.joblib`
+
+You can also automate this via CI/CD or a scheduled Azure Function.
+
+---
+
+## 📎 License
+
+This project is part of a technical assessment and not intended for production.
