@@ -2,36 +2,33 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import numpy as np
-import os
 import pandas as pd
+import os
 from datetime import datetime
 
-# Initialize FastAPI app
 app = FastAPI(title="Boston Housing Price Prediction API")
 
-# Define request body using Pydantic
+# Define the input features using lowercase names
 class HousingFeatures(BaseModel):
-    # Define the 13 features used in the Boston Housing dataset
-    CRIM: float
-    ZN: float
-    INDUS: float
-    CHAS: int
-    NOX: float
-    RM: float
-    AGE: float
-    DIS: float
-    RAD: float
-    TAX: float
-    PTRATIO: float
-    B: float
-    LSTAT: float
+    crim: float
+    zn: float
+    indus: float
+    chas: int
+    nox: float
+    rm: float
+    age: float
+    dis: float
+    rad: int
+    tax: float
+    ptratio: float
+    b: float
+    lstat: float
 
-# Get absolute path to the project root directory
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "gradient_boosting_model.joblib")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "gradient_boosting_model_latest.joblib")
 LOG_PATH = os.path.join(BASE_DIR, "data", "predictions_log.csv")
 
-# Load the trained model
 model = joblib.load(MODEL_PATH)
 
 @app.get("/")
@@ -40,30 +37,26 @@ def root():
 
 @app.post("/predict")
 def predict_price(features: HousingFeatures):
-    # Convert features to NumPy array for model input
-    input_data = np.array([[ 
-        features.CRIM, features.ZN, features.INDUS, features.CHAS, features.NOX,
-        features.RM, features.AGE, features.DIS, features.RAD, features.TAX,
-        features.PTRATIO, features.B, features.LSTAT
-    ]])
+    input_data = np.array([
+        features.crim, features.zn, features.indus, features.chas,
+        features.nox, features.rm, features.age, features.dis,
+        features.rad, features.tax, features.ptratio, features.b,
+        features.lstat
+    ]).reshape(1, -1)
 
-    # Make prediction
     prediction = model.predict(input_data)[0]
 
-    # Create log record
     record = {
         "timestamp": datetime.utcnow().isoformat(),
         **features.dict(),
         "prediction": prediction
     }
 
-    # Convert to DataFrame
     log_df = pd.DataFrame([record])
 
-    # Append to CSV or create it
-    if not os.path.isfile(LOG_PATH):
-        log_df.to_csv(LOG_PATH, index=False)
-    else:
+    if os.path.isfile(LOG_PATH):
         log_df.to_csv(LOG_PATH, mode="a", header=False, index=False)
+    else:
+        log_df.to_csv(LOG_PATH, index=False)
 
     return {"predicted_price": round(prediction, 2)}
