@@ -24,8 +24,8 @@ drift_data = pd.read_csv(DRIFT_DATA_PATH)
 print("\n[INFO] Checking for NaN in drift_data:")
 print(drift_data.isnull().sum())
 
-# Clean drifted data
-drift_data = drift_data.drop(columns=[col for col in ["timestamp", "medv"] if col in drift_data.columns])
+# Ensure drift_data does not contain extra columns
+drift_data = drift_data.drop(columns=[col for col in ["timestamp", "medv", "prediction"] if col in drift_data.columns])
 
 # Prepare training data
 original_features = original_data.drop(columns=["medv"])

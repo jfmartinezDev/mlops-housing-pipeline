@@ -1,14 +1,14 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-import joblib
-import numpy as np
-import pandas as pd
 import os
+import joblib
+import traceback
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from datetime import datetime
+import pandas as pd
+import numpy as np
 
-app = FastAPI(title="Boston Housing Price Prediction API")
+app = FastAPI()
 
-# Define the input features using lowercase names
 class HousingFeatures(BaseModel):
     crim: float
     zn: float
@@ -24,39 +24,66 @@ class HousingFeatures(BaseModel):
     b: float
     lstat: float
 
-
+# Define paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "gradient_boosting_model_latest.joblib")
 LOG_PATH = os.path.join(BASE_DIR, "data", "predictions_log.csv")
 
-model = joblib.load(MODEL_PATH)
+# Print diagnostic info
+print(f"[*] BASE_DIR: {BASE_DIR}")
+print(f"[*] MODEL_PATH: {MODEL_PATH}")
+print(f"[*] LOG_PATH: {LOG_PATH}")
 
+# Load model
+try:
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(f"Model not found at: {MODEL_PATH}")
+    model = joblib.load(MODEL_PATH)
+    print("[+] Model loaded successfully.")
+except Exception as e:
+    print(f"[!] Error loading model:\n{traceback.format_exc()}")
+    model = None
+
+# Root healthcheck endpoint
 @app.get("/")
 def root():
     return {"message": "Boston Housing Price Prediction API is running."}
 
+# Prediction endpoint
 @app.post("/predict")
 def predict_price(features: HousingFeatures):
-    input_data = np.array([
-        features.crim, features.zn, features.indus, features.chas,
-        features.nox, features.rm, features.age, features.dis,
-        features.rad, features.tax, features.ptratio, features.b,
-        features.lstat
-    ]).reshape(1, -1)
+    if model is None:
+        raise HTTPException(status_code=500, detail="Model not available.")
 
-    prediction = model.predict(input_data)[0]
+    try:
+        input_data = np.array([
+            features.crim, features.zn, features.indus, features.chas,
+            features.nox, features.rm, features.age, features.dis,
+            features.rad, features.tax, features.ptratio, features.b,
+            features.lstat
+        ]).reshape(1, -1)
 
-    record = {
-        "timestamp": datetime.utcnow().isoformat(),
-        **features.dict(),
-        "prediction": prediction
-    }
+        print(f"[INFO] Input received: {input_data.tolist()}")
 
-    log_df = pd.DataFrame([record])
+        prediction = model.predict(input_data)[0]
+        print(f"[INFO] Prediction: {prediction}")
 
-    if os.path.isfile(LOG_PATH):
-        log_df.to_csv(LOG_PATH, mode="a", header=False, index=False)
-    else:
-        log_df.to_csv(LOG_PATH, index=False)
+        # Logging to CSV
+        record = {
+            "timestamp": datetime.utcnow().isoformat(),
+            **features.dict(),
+            "prediction": prediction
+        }
 
-    return {"predicted_price": round(prediction, 2)}
+        log_df = pd.DataFrame([record])
+        if os.path.isfile(LOG_PATH):
+            log_df.to_csv(LOG_PATH, mode="a", header=False, index=False)
+        else:
+            log_df.to_csv(LOG_PATH, index=False)
+
+        return {"predicted_price": round(prediction, 2)}
+
+    except Exception as e:
+        print(f"[!] Prediction error:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+

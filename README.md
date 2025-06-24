@@ -1,8 +1,6 @@
 # Housing Price Prediction - MLOps Pipeline
 
-This repository implements a complete MLOps pipeline for predicting housing prices using the Boston Housing dataset. It covers model training, API deployment (locally, Docker, and Azure App Service), monitoring with MLflow and Evidently, drift detection, and automated retraining logic.
-
----
+This repository implements a complete **MLOps pipeline** for predicting housing prices using the **Boston Housing Dataset**. It covers training, local/Docker/Azure API deployment, ML monitoring (MLflow + Evidently), automated drift detection and retraining, version control, and prediction logging.
 
 ## 📁 Project Structure
 
@@ -34,8 +32,6 @@ mlops-housing-pipeline/
 ├── README.md
 ```
 
----
-
 ## ✅ Requirements
 
 Install dependencies in a virtual environment:
@@ -48,23 +44,16 @@ pip install -r requirements.txt
 
 ## 🔑 Key Dependencies
 
-The project relies on the following main Python packages:
-
 | Package        | Version   | Description                                      |
 |----------------|-----------|--------------------------------------------------|
 | fastapi        | 0.115.13  | Web framework for building the REST API         |
 | joblib         | 1.5.1     | Model serialization and persistence             |
-| mlflow         | 3.1.0     | End-to-end machine learning lifecycle tracking  |
-| mlflow_skinny  | 3.1.0     | Lightweight MLflow client for deployment        |
-| numpy          | 2.3.1     | Numerical computations and array operations     |
-| pandas         | 2.3.0     | Data manipulation and preprocessing             |
-| pydantic       | 2.11.7    | Data validation and parsing for FastAPI models  |
-| requests       | 2.32.4    | HTTP requests handling                          |
-| scikit-learn   | 1.7.0     | Model training and evaluation                   |
+| mlflow         | 3.1.0     | ML lifecycle tracking and experiment logging    |
 | evidently      | 0.7.8     | Model monitoring and drift detection            |
-
-
----
+| numpy          | 2.3.1     | Numerical computations                          |
+| pandas         | 2.3.0     | Data manipulation and preprocessing             |
+| scikit-learn   | 1.7.0     | Model training and evaluation                   |
+| pydantic       | 2.11.7    | Data validation in FastAPI                      |
 
 ## 🧠 Train the Model
 
@@ -72,14 +61,10 @@ The project relies on the following main Python packages:
 python src/train.py
 ```
 
-This will:
-
-- Load `BostonHousing.csv`
-- Train and evaluate a `GradientBoostingRegressor`
-- Log artifacts with MLflow
-- Save models to `models/`
-
----
+- Loads `BostonHousing.csv`
+- Trains and evaluates a `GradientBoostingRegressor`
+- Saves models to `models/`
+- Logs to MLflow
 
 ## 🚀 Run the API Locally
 
@@ -87,19 +72,13 @@ This will:
 uvicorn api.main:app --reload
 ```
 
-Visit Swagger UI at:
-
-[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
----
+Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ## 🧪 Run API Tests
 
 ```bash
 pytest api/test_main.py
 ```
-
----
 
 ## 🐳 Run with Docker
 
@@ -112,9 +91,7 @@ docker build -t housing-price-predictor-api .
 ### 2. Run the Container
 
 ```bash
-docker run -d -p 8000:8000 --name housing-api \
-  housing-price-predictor-api \
-  uvicorn api.main:app --host 0.0.0.0 --port 8000
+docker run -d -p 8000:8000 --name housing-api   housing-price-predictor-api   uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 3. Stop and Remove
@@ -124,27 +101,26 @@ docker stop housing-api
 docker rm housing-api
 ```
 
----
+## Deployment on Azure App Service
 
-## ☁️ Deployment on Azure App Service
+### 1. Push to Docker Hub:
 
-### Steps:
+```bash
+docker tag housing-price-predictor-api <your-dockerhub-username>/housing-price-predictor-api:latest
+docker push <your-dockerhub-username>/housing-price-predictor-api:latest
+```
 
-1. Push the image to Docker Hub:
-   ```bash
-   docker tag housing-price-predictor-api jfma8925/housing-price-predictor-api:latest
-   docker push jfma8925/housing-price-predictor-api:latest
-   ```
+### 2. Azure Portal Configuration
 
-2. In Azure Portal > App Service > Deployment Center:
-   - **Container Registry**: Docker Hub
-   - **Image name**: `jfma8925/housing-price-predictor-api:latest`
-   - **Startup command**:
-     ```bash
-     uvicorn api.main:app --host 0.0.0.0 --port 8000
-     ```
+- **Container Registry**: Docker Hub
+- **Image Name**: `<your-dockerhub-username>/housing-price-predictor-api:latest`
+- **Startup Command**:
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
 
----
+### 3. Restart App Service after update
+
 
 ## ☸️ Deployment on Azure Kubernetes Service (AKS)
 
@@ -170,7 +146,7 @@ spec:
     spec:
       containers:
       - name: housing-api
-        image: jfma8925/housing-price-predictor-api:latest
+        image: <your-dockerhub-username>/housing-price-predictor-api:latest
         ports:
         - containerPort: 8000
 ```
@@ -182,17 +158,15 @@ kubectl apply -f deployment.yaml
 kubectl expose deployment housing-api --type=LoadBalancer --port=80 --target-port=8000
 ```
 
----
-
 ## 📊 Monitoring and Drift Detection
 
-### Launch MLflow UI:
+### Run MLflow UI:
 
 ```bash
 mlflow ui
 ```
 
-Visit: [http://localhost:5000](http://localhost:5000)
+Access: [http://localhost:5000](http://localhost:5000)
 
 ### Run Drift Detection:
 
@@ -200,9 +174,7 @@ Visit: [http://localhost:5000](http://localhost:5000)
 python src/detect_drift.py
 ```
 
-Drift report saved in: `data/evidently_drift_report.html`
-
----
+Output: `data/evidently_drift_report.html`
 
 ## 🔁 Retraining Strategy
 
@@ -218,11 +190,42 @@ This will:
 - Load updated dataset
 - Train new model
 - Replace `gradient_boosting_model_latest.joblib`
+- Saves timestamped backup model
+- Updates Docker image if needed
 
 You can also automate this via CI/CD or a scheduled Azure Function.
 
 ---
 
-## 📎 License
+
+## 🧾 Inference Logging
+
+- API logs every prediction to `data/predictions_log.csv` with timestamp, inputs and prediction.
+- Useful for drift detection and auditing.
+
+## 🧯 Troubleshooting
+
+- ❗ **500 Internal Server Error on Azure?**
+  - Ensure the model file exists in `/app/models/`
+  - Check correct filename: `gradient_boosting_model_latest.joblib`
+  - Restart the App Service from Azure Portal
+
+- ❗ **Model Input Shape Error?**
+  - Ensure you rebuilt the model after feature changes:
+  ```bash
+  python src/train.py
+  ```
+
+- ❗ **Docker Container Won’t Start?**
+  - Run logs: `docker logs housing-api`
+  - Ensure path to model is correct in `main.py`
+
+## License
 
 This project is part of a technical assessment and not intended for production.
+
+## 👨‍💻 Author
+
+**José Francisco Martínez Amaya**  
+- Docker Hub: [jfma8925](https://hub.docker.com/repository/docker/jfma8925/housing-price-predictor-api/)  
+- GitHub: [github.com/jfma8925](https://github.com/jfmartinezDev/mlops-housing-pipeline)

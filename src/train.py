@@ -43,6 +43,9 @@ with mlflow.start_run(run_name="GradientBoosting_BostonHousing"):
     mlflow.log_metric("mae", mae)
     mlflow.log_metric("r2", r2)
 
+    print("Model expects:", model.n_features_in_)  # Should print 13
+
+
     # Save and log the model
     os.makedirs("models", exist_ok=True)
     model_path = "models/gradient_boosting_model.joblib"
