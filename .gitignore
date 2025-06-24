@@ -9,8 +9,8 @@ env/
 venv/
 
 # Model artifacts
-models/
-*.joblib
+#models/
+#*.joblib
 
 # MLflow run directory
 mlruns/
